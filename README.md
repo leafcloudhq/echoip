@@ -1,6 +1,6 @@
 # echoip
 
-[![Build Status](https://travis-ci.org/mpolden/echoip.svg)](https://travis-ci.org/mpolden/echoip)
+![Build Status](https://github.com/mpolden/echoip/workflows/ci/badge.svg)
 
 A simple service for looking up your IP address. This is the code that powers
 https://ifconfig.co.
@@ -40,6 +40,9 @@ Bornyasherk
 
 $ curl ifconfig.co/asn
 AS59795
+
+$ curl ifconfig.co/asn-org
+Hosting4Real
 ```
 
 As JSON:
@@ -93,9 +96,9 @@ between IPv4 and IPv6 lookup.
 ## Building
 
 Compiling requires the [Golang compiler](https://golang.org/) to be installed.
-This package can be installed with `go get`:
+This package can be installed with:
 
-`go get github.com/mpolden/echoip/...`
+`go install github.com/mpolden/echoip/...@latest`
 
 For more information on building a Go project, see the [official Go
 documentation](https://golang.org/doc/code.html).
@@ -106,6 +109,11 @@ A Docker image is available on [Docker
 Hub](https://hub.docker.com/r/mpolden/echoip), which can be downloaded with:
 
 `docker pull mpolden/echoip`
+
+## [GeoIP](https://www.maxmind.com/en/geoip2-databases)/[GeoLite](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data?) Database (MaxMind)
+To utilise MaxMind [GeoIP](https://www.maxmind.com/en/geoip2-databases)/[GeoLite](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data?) database to enhance the information provided to end users, you can download the relevant **binary** databases (`.mmdb` format) directly from MaxMind using the above links.
+
+**Please Note**: This has only been tested using the free, GeoLite database.
 
 ### Usage
 

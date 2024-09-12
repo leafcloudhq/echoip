@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strings"
 
 	"os"
 
@@ -14,19 +15,17 @@ import (
 type multiValueFlag []string
 
 func (f *multiValueFlag) String() string {
-	vs := ""
-	for i, v := range *f {
-		vs += v
-		if i < len(*f)-1 {
-			vs += ", "
-		}
-	}
-	return vs
+	return strings.Join([]string(*f), ", ")
 }
 
 func (f *multiValueFlag) Set(v string) error {
 	*f = append(*f, v)
 	return nil
+}
+
+func init() {
+	log.SetPrefix("echoip: ")
+	log.SetFlags(log.Lshortfile)
 }
 
 func main() {
@@ -43,8 +42,11 @@ func main() {
 	var headers multiValueFlag
 	flag.Var(&headers, "H", "Header to trust for remote IP, if present (e.g. X-Real-IP)")
 	flag.Parse()
+	if len(flag.Args()) != 0 {
+		flag.Usage()
+		return
+	}
 
-	log := log.New(os.Stderr, "echoip: ", 0)
 	r, err := geo.Open(*countryFile, *cityFile, *asnFile)
 	if err != nil {
 		log.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -188,7 +189,7 @@ func (s *Server) newPortResponse(r *http.Request) (PortResponse, error) {
 func (s *Server) CLIHandler(w http.ResponseWriter, r *http.Request) *appError {
 	ip, err := ipFromRequest(s.IPHeaders, r, true)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintln(w, ip.String())
 	return nil
@@ -197,7 +198,7 @@ func (s *Server) CLIHandler(w http.ResponseWriter, r *http.Request) *appError {
 func (s *Server) CLICountryHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintln(w, response.Country)
 	return nil
@@ -206,7 +207,7 @@ func (s *Server) CLICountryHandler(w http.ResponseWriter, r *http.Request) *appE
 func (s *Server) CLICountryISOHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintln(w, response.CountryISO)
 	return nil
@@ -215,7 +216,7 @@ func (s *Server) CLICountryISOHandler(w http.ResponseWriter, r *http.Request) *a
 func (s *Server) CLICityHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintln(w, response.City)
 	return nil
@@ -224,7 +225,7 @@ func (s *Server) CLICityHandler(w http.ResponseWriter, r *http.Request) *appErro
 func (s *Server) CLICoordinatesHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintf(w, "%s,%s\n", formatCoordinate(response.Latitude), formatCoordinate(response.Longitude))
 	return nil
@@ -233,16 +234,25 @@ func (s *Server) CLICoordinatesHandler(w http.ResponseWriter, r *http.Request) *
 func (s *Server) CLIASNHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	fmt.Fprintf(w, "%s\n", response.ASN)
+	return nil
+}
+
+func (s *Server) CLIASNOrgHandler(w http.ResponseWriter, r *http.Request) *appError {
+	response, err := s.newResponse(r)
+	if err != nil {
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
+	}
+	fmt.Fprintf(w, "%s\n", response.ASNOrg)
 	return nil
 }
 
 func (s *Server) JSONHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err).AsJSON()
+		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
 	b, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
@@ -320,7 +330,7 @@ func (s *Server) cacheHandler(w http.ResponseWriter, r *http.Request) *appError 
 func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *appError {
 	response, err := s.newResponse(r)
 	if err != nil {
-		return internalServerError(err)
+		return badRequest(err).WithMessage(err.Error())
 	}
 	t, err := template.ParseGlob(s.Template + "/*")
 	if err != nil {
@@ -369,7 +379,7 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) *appError {
 func cliMatcher(r *http.Request) bool {
 	ua := useragent.Parse(r.UserAgent())
 	switch ua.Product {
-	case "curl", "HTTPie", "httpie-go", "Wget", "fetch libfetch", "Go", "Go-http-client", "ddclient", "Mikrotik":
+	case "curl", "HTTPie", "httpie-go", "Wget", "fetch libfetch", "Go", "Go-http-client", "ddclient", "Mikrotik", "xh":
 		return true
 	}
 	return false
@@ -386,11 +396,15 @@ func wrapHandlerFunc(f http.HandlerFunc) appHandler {
 
 func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil { // e is *appError
+		if e.Code/100 == 5 {
+			log.Println(e.Error)
+		}
 		// When Content-Type for error is JSON, we need to marshal the response into JSON
 		if e.IsJSON() {
 			var data = struct {
+				Code  int    `json:"status"`
 				Error string `json:"error"`
-			}{e.Message}
+			}{e.Code, e.Message}
 			b, err := json.MarshalIndent(data, "", "  ")
 			if err != nil {
 				panic(err)
@@ -426,6 +440,7 @@ func (s *Server) Handler() http.Handler {
 		r.Route("GET", "/city", s.CLICityHandler)
 		r.Route("GET", "/coordinates", s.CLICoordinatesHandler)
 		r.Route("GET", "/asn", s.CLIASNHandler)
+		r.Route("GET", "/asn-org", s.CLIASNOrgHandler)
 	}
 
 	// Browser

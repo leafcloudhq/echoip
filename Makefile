@@ -1,5 +1,5 @@
 DOCKER ?= docker
-DOCKER_IMAGE ?= mpolden/echoip
+DOCKER_IMAGE ?= createleafcloud/echoip
 OS := $(shell uname)
 ifeq ($(OS),Linux)
 	TAR_OPTS := --wildcards
@@ -50,14 +50,17 @@ docker-build:
 	$(DOCKER) build -t $(DOCKER_IMAGE) .
 
 docker-login:
-	@echo "$(DOCKER_PASSWORD)" | $(DOCKER) login -u "$(DOCKER_USERNAME)" --password-stdin
+	$(DOCKER) login --username "$(DOCKER_USERNAME)" --password "$(DOCKER_PASSWORD)"
 
 docker-test:
 	$(eval CONTAINER=$(shell $(DOCKER) run --rm --detach --publish-all $(DOCKER_IMAGE)))
 	$(eval DOCKER_PORT=$(shell $(DOCKER) port $(CONTAINER) | cut -d ":" -f 2))
 	curl -fsS -m 5 localhost:$(DOCKER_PORT) > /dev/null; $(DOCKER) stop $(CONTAINER)
 
-docker-push: docker-test docker-multiarch-builder docker-login
+docker-push: docker-test docker-login
+	$(DOCKER) push $(DOCKER_IMAGE)
+
+docker-pushx: docker-multiarch-builder docker-test docker-login
 	$(DOCKER) buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t $(DOCKER_IMAGE) --push .
 
 xinstall:
